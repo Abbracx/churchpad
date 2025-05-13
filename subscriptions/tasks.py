@@ -13,6 +13,6 @@ def send_welcome_sms(subscriber_id):
             from_=settings.TWILIO_PHONE_NUMBER,
             to=subscriber.phone_number
         )
-        return f"SMS sent to {subscriber.phone_number}"
+        print( f"SMS sent to {subscriber.phone_number}")
     except Exception as e:
         return str(e)

@@ -23,11 +23,11 @@ class Plan(TimeStampedModel):
         return self.name
 
 class Subscriber(TimeStampedModel):
-    name = models.CharField(max_length=100)
-    email = models.EmailField(unique=True)
-    phone_number = models.CharField(max_length=20)
+    name = models.CharField(verbose_name=_("Name"), max_length=100)
+    email = models.EmailField(verbose_name=_("Email"), unique=True)
+    phone_number = models.CharField(verbose_name=_("Phone Number"), max_length=20)
     plan = models.ForeignKey(Plan, on_delete=models.PROTECT)
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=False)
     stripe_customer_id = models.CharField(max_length=100, unique=True)
     stripe_subscription_id = models.CharField(max_length=100, unique=True)
     

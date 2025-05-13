@@ -1,0 +1,9 @@
+[tool.black]
+extend-exclude = '''
+/(
+    | env
+)/
+'''
+
+[tool.poetry.dependencies]
+python = "^3.12.10"
