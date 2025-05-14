@@ -1,4 +1,3 @@
-
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
@@ -23,12 +22,10 @@ schema_view = get_schema_view(
 )
 
 
-
-
 urlpatterns = [
     path("", RedirectView.as_view(url="api/v1/redoc/", permanent=False)),
-    path('admin/', admin.site.urls),
-    path('api/v1/subscribe/', include("subscriptions.urls", namespace="usersauth")),
+    path("admin/", admin.site.urls),
+    path("api/v1/subscribe/", include("apps.subscriptions.urls", namespace="usersauth")),
     path(
         "api/v1/swagger/",
         schema_view.with_ui("swagger", cache_timeout=0),
@@ -44,7 +41,6 @@ urlpatterns = [
         schema_view.without_ui(cache_timeout=0),
         name="schema-json",
     ),
-
 ]
 
 if settings.DEBUG:
