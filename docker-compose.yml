@@ -1,0 +1,125 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:6.2
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - churchpad
+
+  web:
+    build:
+      context: .
+      dockerfile: ./docker/local/django/Dockerfile
+    # container_name: web
+    command: /start
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - .:/app:z
+      - static_volume:/app/staticfiles
+      - media_volume:/app/mediafiles
+    depends_on:
+      - redis
+      - postgres
+      - mailhog
+  
+    networks:
+      - churchpad
+
+  client:
+    build:
+        context: ./react-stripe-payment
+        dockerfile: ./docker/local/Dockerfile
+    restart: on-failure
+    # ports:
+    #   - "5173:5173"
+    command: npm run dev -- --host 0.0.0.0
+    volumes:
+        - ./react-stripe-payment:/app
+        - /app/node_modules
+    networks:
+        - churchpad
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.0
+    container_name: mailhog
+    ports:
+        - "8025:8025"
+    networks:
+        - churchpad
+
+  postgres:
+    image: postgres:15-bullseye
+    ports:
+      - "5437:5437"
+    volumes:
+      - local_postgres_data:/var/lib/postgresql/data/
+    env_file:
+      - .env
+    networks:
+      - churchpad
+
+    
+  celery_worker:
+    build:
+        context: .
+        dockerfile: ./docker/local/django/Dockerfile
+    command: /start-celeryworker
+    volumes:
+        - .:/app
+    env_file:
+        - .env
+    depends_on:
+        - redis
+        - postgres
+        - mailhog
+    networks:
+        - churchpad
+
+  # flower:
+  #   build:
+  #       context: .
+  #       dockerfile: ./docker/local/django/Dockerfile
+  #   command: /start-flower
+  #   volumes:
+  #       - flower_data:/data
+  #   env_file:
+  #       - .env
+  #   ports:
+  #       - "5555:5555"
+  #   depends_on:
+  #       - redis
+  #       - postgres
+  #   networks:
+  #       - churchpad
+
+  nginx:
+    restart: always
+    depends_on:
+        - web
+    volumes:
+        - static_volume:/app/staticfiles
+        - media_volume:/app/mediafiles
+    build:
+        context: ./docker/local/nginx
+        dockerfile: Dockerfile
+    ports:
+        - "8080:80"
+    networks:
+        - churchpad
+
+
+networks:
+    churchpad:
+        driver: bridge
+
+volumes:
+  static_volume:
+  media_volume:
+  churchpad_volume:
+  local_postgres_data: {}
