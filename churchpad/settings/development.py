@@ -10,7 +10,7 @@ SECRET_KEY = env(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = ["*","df19-102-89-33-105.ngrok-free.app", "8485-102-88-111-129.ngrok-free.app"]
 
 CSRF_TRUSTED_ORIGINS = [
     "http://0.0.0.0:8000",
@@ -19,6 +19,8 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8080",
     "http://127.0.0.1:5500",
     "http://localhost:5173",
+    "https://df19-102-89-33-105.ngrok-free.app",
+    "https://8485-102-88-111-129.ngrok-free.app"
 ]
 
 CORS_ALLOWED_ORIGINS = [
@@ -27,7 +29,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8080",
     "http://127.0.0.1:8000",
     "http://127.0.0.1:5500",
-    " http://localhost:5173",
+    "http://localhost:5173",
+    "https://df19-102-89-33-105.ngrok-free.app",
+    "https://8485-102-88-111-129.ngrok-free.app"
 ]
 
 
