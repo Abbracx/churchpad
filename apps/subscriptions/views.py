@@ -1,3 +1,4 @@
+
 import logging
 from django.db import transaction
 from rest_framework.decorators import api_view
@@ -14,7 +15,7 @@ from .serializers import (
 )
 import stripe
 from django.conf import settings
-from .tasks import send_welcome_sms
+from .tasks import send_welcome_sms, send_email_task
 from .services import StripeService
 
 
@@ -151,6 +152,12 @@ def confirm_subscription(request):
         # Trigger Celery task to send SMS
         send_welcome_sms.delay(subscriber.id)
         logger.info(f"Welcome SMS task triggered for subscriber {subscriber.id}")
+
+        # Trigger Celery task to send email
+        subject = "Welcome to ChurchPad"
+        message = f"Hi {subscriber.name},\n\nThank you for subscribing to our service. We are excited to have you on board!"
+        send_email_task.delay(subject, message, [subscriber.email])
+        logger.info(f"Welcome email task triggered for subscriber {subscriber.id}")
         return Response(
             ReadSubscriberSerializer(subscriber).data, status=status.HTTP_201_CREATED
         )
@@ -302,11 +309,27 @@ def register_price(request):
 @api_view(["POST"])
 def stripe_webhook(request):
     logger.info("Processing Stripe webhook")
-    event_type = request.data.get("event_type")
-    customer_id = request.data.get("customer_id")
+
+    # Verify the payload
+    try:
+        payload = request.body
+        sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
+        )
+    except ValueError as e:
+        logger.error("Invalid payload")
+        return Response({"error": "Invalid payload"}, status=status.HTTP_400_BAD_REQUEST)
+    except stripe.error.SignatureVerificationError as e:
+        logger.error("Invalid signature")
+        return Response({"error": "Invalid signature"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Extract event type and customer ID
+    event_type = event["type"]
+    customer_id = event["data"]["object"].get("customer")
 
     if not event_type or not customer_id:
-        logger.error("Invalid webhook payload")
+        logger.error("Missing event_type or customer_id in webhook payload")
         return Response(
             {"error": "Invalid payload"}, status=status.HTTP_400_BAD_REQUEST
         )
@@ -320,73 +343,49 @@ def stripe_webhook(request):
         )
 
     # Handle different event types
-    if event_type == "payment_failed":
-        logger.info(f"Handling payment_failed for customer {customer_id}")
-        subscriber.is_active = False
-        subscriber.save()
-        return Response({"status": "subscription deactivated"})
-
-    elif event_type == "customer.subscription.created":
-        logger.info(
-            f"Handling customer.subscription.created for customer {customer_id}"
-        )
+    if event_type == "customer.subscription.created":
+        logger.info(f"Handling customer.subscription.created for customer {customer_id}")
         subscriber.is_active = True
         subscriber.save()
+
+        # Send email notification asynchronously
+        subject = "Subscription Created"
+        message = f"Dear {subscriber.name},\n\nYour subscription has been successfully created."
+        send_email_task.delay(subject, message, [subscriber.email])
+
         return Response({"status": "subscription activated"})
 
     elif event_type == "customer.subscription.updated":
-        logger.info(
-            f"Handling customer.subscription.updated for customer {customer_id}"
-        )
-        # Update subscription details if necessary
+        logger.info(f"Handling customer.subscription.updated for customer {customer_id}")
+
+        # Send email notification asynchronously
+        subject = "Subscription Updated"
+        message = f"Dear {subscriber.name},\n\nYour subscription has been updated."
+        send_email_task.delay(subject, message, [subscriber.email])
+
         return Response({"status": "subscription updated"})
 
     elif event_type == "customer.subscription.deleted":
-        logger.info(
-            f"Handling customer.subscription.deleted for customer {customer_id}"
-        )
+        logger.info(f"Handling customer.subscription.deleted for customer {customer_id}")
         subscriber.is_active = False
         subscriber.save()
+
+        # Send email notification asynchronously
+        subject = "Subscription Cancelled"
+        message = f"Dear {subscriber.name},\n\nYour subscription has been cancelled."
+        send_email_task.delay(subject, message, [subscriber.email])
+
         return Response({"status": "subscription deleted"})
 
     elif event_type == "payment_intent.succeeded":
         logger.info(f"Handling payment_intent.succeeded for customer {customer_id}")
-        # Handle successful payment logic
+
+        # Send email notification asynchronously
+        subject = "Payment Successful"
+        message = f"Dear {subscriber.name},\n\nYour payment was successful. Thank you!"
+        send_email_task.delay(subject, message, [subscriber.email])
+
         return Response({"status": "payment succeeded"})
-
-    elif event_type == "customer.created":
-        logger.info(f"Handling customer.created for customer {customer_id}")
-        # Handle customer creation logic if necessary
-        return Response({"status": "customer created"})
-
-    elif event_type == "subscription_schedule.completed":
-        logger.info(
-            f"Handling subscription_schedule.completed for customer {customer_id}"
-        )
-        # Handle subscription schedule completion
-        return Response({"status": "subscription schedule completed"})
-
-    elif event_type == "subscription_schedule.updated":
-        logger.info(
-            f"Handling subscription_schedule.updated for customer {customer_id}"
-        )
-        # Handle subscription schedule update
-        return Response({"status": "subscription schedule updated"})
-
-    elif event_type == "subscription_schedule.expiring":
-        logger.info(
-            f"Handling subscription_schedule.expiring for customer {customer_id}"
-        )
-        # Handle subscription schedule expiration
-        return Response({"status": "subscription schedule expiring"})
-
-    elif event_type == "customer.subscription.resumed":
-        logger.info(
-            f"Handling customer.subscription.resumed for customer {customer_id}"
-        )
-        subscriber.is_active = True
-        subscriber.save()
-        return Response({"status": "subscription resumed"})
 
     else:
         logger.warning(f"Unhandled event type: {event_type}")
