@@ -71,9 +71,9 @@ STRIPE_WEBHOOK_SECRET=
 make build
 ```
 This will spin up the following services
-- Django Backend: Accessible at http://localhost:8000
-- React Frontend: Accessible at http://localhost:8080
-- Mailhog: Accessible at http://localhost:8025 (for testing email functionality)
+- Django Backend: Accessible at http://0.0.0.0:8000
+- React Frontend: Accessible at http://0.0.0.0:8080
+- Mailhog: Accessible at http://0.0.0.0:8025 (for testing email functionality)
 - Postgres Database
 - Redis
 - Celery
